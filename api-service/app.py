@@ -7,6 +7,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from protobuf import auth_pb2, auth_pb2_grpc, todo_pb2_grpc, todo_pb2
+from opentelemetry import trace 
+from opentelemetry.sdk.resources import Resource 
+from opentelemetry.sdk.trace import TracerProvider 
+from opentelemetry.sdk.trace.export import BatchSpanProcessor 
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter 
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor 
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient 
+
+provider = TracerProvider(resource=Resource.create({"service.name": "api-service"})) 
+provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint="otel-collector:4317", insecure=True))) 
+trace.set_tracer_provider(provider) 
+
+
 
 load_dotenv()
 
@@ -27,6 +40,12 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
+
+# ... existing app creation ... 
+FastAPIInstrumentor.instrument_app(app) 
+GrpcInstrumentorClient().instrument() 
+
+# channels/stubs after
 auth_service_channel = grpc.insecure_channel(AUTH_SERVICE_URL)
 auth_service_stub = auth_pb2_grpc.AuthServiceStub(auth_service_channel)
 todo_service_channel = grpc.insecure_channel(TODO_SERVICE_URL)
@@ -137,3 +156,4 @@ def delete_todo(id: str, token: HTTPAuthorizationCredentials = Security(security
         todo_service_stub.DeleteTodo(todo_pb2.TodoIdentifier(id=id, username=user.username))
     except Exception as e:
         raise HTTPException(status_code=400, detail=e.details())
+

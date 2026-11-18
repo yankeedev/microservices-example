@@ -4,4 +4,5 @@ COPY ./ /app/
 WORKDIR /app
 RUN npm install
 RUN npm run build
-CMD ["node", "dist/server.js"]
+# CMD ["node", "dist/server.js"] 
+CMD ["node", "-r", "./dist/instrumentation.js", "dist/server.js"] 
